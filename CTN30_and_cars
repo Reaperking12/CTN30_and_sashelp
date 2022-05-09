@@ -14,7 +14,7 @@ set cars;
 by make;
 if first.make then output;/*output only the first record of each group*/
 run;
-/*printing all the obs from dataset cars1/
+/*printing all the obs from dataset cars1*/
 proc print data=cars1;
 title 'car models among each make that have the best overall mpg';
 run;
@@ -51,7 +51,7 @@ title ' Transforming data from wide to long for weight data';
 run;
 /*creating libary CTN30 and populating it with datasets from CTN30*/
 Libname CTN30 '~/my_shared_file_links/panyue0/BST625/DATA/CTN30 Data';
-/*creating a dataset dem1 from t_FRDEM to serve 
+/*creating a dataset dem1 from t_FRDEM to serve */
 data dem1; 	
 	set ctn30.T_FRDEM;
 	keep DEM001 Patdeid;
@@ -93,10 +93,11 @@ set CTN30.t_frASL4(keep=patdeid D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a)
 any_drg30=0;
 array drug_use(11) D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a;
 	do i=1 to dim(drug_use);
-		ANY_DRG30 = drug_use(i)+any_drg30;
+		if drug_use(i) ne 0 then any_drg30=1;
+		else any_drg30=0;
 	end;/*if then statement that if there any value within any_Drg 
 	then the variable anydrg30_words would have certain value depedent on it*/
-	if ANY_DRG30 ge 1 then ANYDRG30_words="Yes there was any drug use in the past 30 days";
+	if ANY_DRG30 eq 1 then ANYDRG30_words="Yes there was any drug use in the past 30 days";
 		else ANYDRG30_words="no there was any drug use in the past 30 days";
 	AVG_DRG30 = round(mean(D3a, D4a, D4a1, D5a, D6a, D7a, D8a, D9a, D10a, D11a, D12a), .1);
 	drop i D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a;
