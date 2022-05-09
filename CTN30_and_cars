@@ -1,0 +1,204 @@
+/*creating a new dataset by reading the obs of dataset sashelp.cars*/
+data cars;
+set sashelp.cars;
+mean_mpg=round(Mean(mpg_city, mpg_highway));
+keep make model mean_mpg;
+run;
+/*sorting the dataset cars*/
+proc sort data=cars;
+by make descending mean_mpg;
+run;
+/*creating a new dataset cars1 by the dataset cars1*/
+data cars1;
+set cars;
+by make;
+if first.make then output;/*output only the first record of each group*/
+run;
+/*printing all the obs from dataset cars1/
+proc print data=cars1;
+title 'car models among each make that have the best overall mpg';
+run;
+/*importing the datafile weight_loss*/
+proc import datafile='~/my_shared_file_links/panyue0/BST625/DATA/HW3/Weight_loss.xlsx'
+DBMS=xlsx
+out=weight_loss
+replace;
+run;
+/*creating dataset weight_loss2 based on dataset weight_loss*/
+data weight_loss2;
+set weight_loss;
+array weight weight0 weight1 weight2;
+	DO over weight;
+	if weight=9999 then weight=.;
+	end;
+run;
+/*restuctureing the dataset from wide to long*/
+proc transpose data=weight_loss2
+               out=weight_loss3(rename = (col1 = all_weight 
+               						              _name_ = weight_time)
+               			                drop =  _label_
+               					        where=(all_weight ne .));
+   by pid gender walk_steps;
+   /*BY statement that performs the operation for 
+each value of the grouping var stu_id, the values of the grouping var in BY 
+statement are not transposed */
+   var weight0 - weight2;
+   /*values of weight0-2 will be transposed*/
+run;
+/*printing out all the obs from dataset weight_loss3*/
+proc print data=weight_loss3;
+title ' Transforming data from wide to long for weight data';
+run;
+/*creating libary CTN30 and populating it with datasets from CTN30*/
+Libname CTN30 '~/my_shared_file_links/panyue0/BST625/DATA/CTN30 Data';
+/*creating a dataset dem1 from t_FRDEM to serve 
+data dem1; 	
+	set ctn30.T_FRDEM;
+	keep DEM001 Patdeid;
+run;
+data visit1;
+	set ctn30.T_FRDOV;
+	where visit = 'BL';
+	keep visit DOV Patdeid;
+run;
+proc sort data=dem1;
+	by Patdeid;
+run;
+proc sort data=visit1;
+	by Patdeid;
+run;
+Data age;
+	format DEM001;
+	merge dem1 visit1;
+	by PAtdeid;
+	Age = intck('year', DEM001, DOV);
+run;
+/*creating format on how the variable should appear*/
+PROC FORMAT;                            
+   VALUE RND005f	
+	1 = 'SMM'              
+        2 = 'SMM+ODC';   
+run;
+/*creating new dataset based on dataset T_FRRND*/
+data RND;
+set CTN30.T_FRRND;
+keep patdeid RND002 RND005;
+format rnd005 rnd005f.;
+run;
+/*drug use data set  */
+data drg;
+set CTN30.t_frASL4(keep=patdeid D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a);
+/*creating a array that looks at all the 11 variables d3a to d12a and see if there is a 0 or a 1
+ and then creates a new variable any_drg30 that would equal to 1 if any of the variables is equal to 1*/
+any_drg30=0;
+array drug_use(11) D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a;
+	do i=1 to dim(drug_use);
+		ANY_DRG30 = drug_use(i)+any_drg30;
+	end;/*if then statement that if there any value within any_Drg 
+	then the variable anydrg30_words would have certain value depedent on it*/
+	if ANY_DRG30 ge 1 then ANYDRG30_words="Yes there was any drug use in the past 30 days";
+		else ANYDRG30_words="no there was any drug use in the past 30 days";
+	AVG_DRG30 = round(mean(D3a, D4a, D4a1, D5a, D6a, D7a, D8a, D9a, D10a, D11a, D12a), .1);
+	drop i D3a D4a D4a1 D5a D6a D7a D8a D9a D10a D11a D12a;
+run;
+
+/*demographic dataset*/
+data dem;
+set CTN30.t_frdem (keep = DEM002 patdeid visit);
+length gender $8;
+if DEM002 = . then gender = . ; 
+else if DEM002 = 1 then gender="Male";
+else
+gender ="female";
+run;
+
+/*alochol use data set*/
+data ALC;
+set CTN30.t_frASL4 (keep = D2A D2B patdeid visit);
+if D2A>0 then  ALCTOX_30 = 1;
+else
+ ALCTOX_30 = 0;
+If D2B = . then ALCTOX_LT =.; 
+else if D2B>0 then  ALCTOX_LT = 1;
+else
+ ALCTOX_LT = 0;
+/*merging datasets  */
+data combined;
+	merge dem alc age rnd drg;
+	by patdeid;
+	if RND002=1;
+run;
+/*macro variable used to referenced the last created dataset */
+%macro com;
+&syslast;
+%mend com;
+/* CTN30 Data Exploration*/
+title'CTN30 Data Exploration';
+proc freq data=%com;
+	tables gender;
+run;
+proc freq data=%com;
+	tables gender*RND005;
+run;
+proc means data=%com;
+	class RND005;
+	var age;
+run;
+proc means data=%com;
+	class RND005;
+	var D2A any_drg30;
+run;
+proc freq data=%com;
+	
+	tables ALCTOX_30*RND005 ALCTOX_LT*RND005 any_drg30*RND005;
+run;
+/* sorting*/
+ods graphics / reset width=6.4in height=4.8in imagemap;
+
+proc sort data=WORK.COMBINED out=BarChartTaskData;
+	by gender;
+run;
+/*graphing a bar plot*/
+proc sgplot data=BarChartTaskData;
+title height=14pt "Relationship among alcohol to intoxication (past 30 days, in the lifetime) to gender";
+	by gender;
+	vbar ALCTOX_30 / group=ALCTOX_LT groupdisplay=cluster;
+	yaxis grid;
+run;
+
+ods graphics / reset;
+
+proc datasets library=WORK noprint;
+	delete BarChartTaskData;
+	run;
+	
+	ods graphics / reset width=6.4in height=4.8in imagemap;
+
+proc sort data=WORK.COMBINED out=BarChartTaskData;
+	by ANY_DRG30;
+	
+run;
+/*graphing bar plot*/
+proc sgplot data=BarChartTaskData;
+	title height=14pt "Relationship among alcohol to intoxication (past 30 days, in the lifetime) to any drug type";
+	by ANY_DRG30;
+	vbar ALCTOX_LT / group=ALCTOX_30 groupdisplay=cluster;
+	yaxis grid;
+run;
+
+ods graphics / reset;
+
+proc datasets library=WORK noprint;
+	delete BarChartTaskData;
+	run;
+	
+ods graphics / reset width=6.4in height=4.8in imagemap;
+/*graphing a bar chart*/
+proc sgplot data=WORK.COMBINED;
+	title height=14pt "Relationship among alcohol to intoxication (past 30 days, in the lifetime) to age";
+	vbox Age / category=ALCTOX_30 group=ALCTOX_LT;
+	yaxis grid;
+run;
+
+ods graphics / reset;
+title;
